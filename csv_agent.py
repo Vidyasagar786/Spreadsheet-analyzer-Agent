@@ -10,14 +10,11 @@ from typing import Any
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
-# --- Logging Setup ---
 logging.basicConfig(level=logging.INFO)
 clog = logging.getLogger(__name__)
 
-# --- Load Environment Variables ---
 load_dotenv()
 
-# --- Exceptions & Constants ---
 class CodeGenerationError(Exception): pass
 class CodeExecutionError(Exception): pass
 
@@ -26,7 +23,6 @@ INVALID_RESPONSE = "Invalid response"
 EMPTY_CODE_BLOCK = "Empty code block"
 CODE_SYNTAX_ERROR = "Syntax error"
 
-# --- OpenAI Client Wrapper ---
 class OpenAIClientWrapper:
     def __init__(self, api_key: str):
         self.client = AsyncOpenAI(api_key=api_key)
@@ -49,7 +45,6 @@ class OpenAIClientWrapper:
             clog.error(f"OpenAI API Call Failed: {e}")
             raise
 
-# --- CodeGenerator ---
 class CodeGenerator:
     def __init__(self, client_wrapper: OpenAIClientWrapper, prompt_template: str, max_retries: int = 3):
         self.client_wrapper = client_wrapper
@@ -57,7 +52,7 @@ class CodeGenerator:
         self.MAX_RETRY_COUNT = max_retries
 
     def __validate_and_clean_code(self, code: str):
-        # Extract Only Python Code Block
+        # extracting Only Python Code Block
         code_regex = r"```python\s*(.*?)```"
         match = re.search(code_regex, code, re.DOTALL | re.IGNORECASE)
 
@@ -90,7 +85,6 @@ class CodeGenerator:
         retry_error = kwargs.get('ERROR', '')
         generated_code = kwargs.get('GENERATED_CODE', '')
         
-        # Construct the full prompt
         system_prompt = self.prompt_template.format(
             df_analysis=df_context,
             retry_status=retry_status,
@@ -184,12 +178,10 @@ class CodeExecutor:
             clog.error(f"Execution failed: {e}")
             raise CodeExecutionError(str(e))
 
-# --- Streamlit App ---
 def main():
     st.set_page_config(page_title="CSV Agent", layout="wide")
     st.title("CSV Analysis Agent")
 
-    # API Key Handling
     api_key = st.sidebar.text_input("OpenAI API Key", type="password")
     if api_key:
         api_key = api_key.strip()
@@ -213,13 +205,19 @@ def main():
             st.sidebar.error(f"Key Validation Failed: {e}")
             return
 
-    # File Upload
-    uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
+    # File Upload (CSV or Excel)
+    uploaded_file = st.file_uploader("Upload a CSV or Excel file", type=["csv", "xlsx", "xls"])
     
     if uploaded_file:
         try:
-            # Read CSV
-            df = pd.read_csv(uploaded_file)
+            file_name = uploaded_file.name.lower()
+            if file_name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            elif file_name.endswith(('.xlsx', '.xls')):
+                df = pd.read_excel(uploaded_file)
+            else:
+                st.error("Unsupported file type. Please upload a CSV or Excel file.")
+                return
             st.write("### Data Preview")
             st.dataframe(df.head())
             
